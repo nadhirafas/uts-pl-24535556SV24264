@@ -86,13 +86,18 @@ jobs:
             docker compose logs --no-color db || true
             docker compose logs --no-color backend || true
             docker compose logs --no-color frontend || true
+
+            DB_CONTAINER=$(docker compose ps -aq db)
+            if [ -n "$DB_CONTAINER" ]; then
+              docker inspect --format='{{json .State.Health}}' "$DB_CONTAINER" || true
+            fi
+
             exit 1
           fi
 
           code=""
           for i in $(seq 1 40); do
             docker compose ps -a
-            docker compose logs --no-color db
 
             code=$(curl -s -o /dev/null -w '%{http_code}' \
               -H 'Accept: application/json' \
@@ -104,11 +109,18 @@ jobs:
               break
             fi
 
-            # Jika database berhenti atau tidak sehat, tampilkan log sebelum gagal.
-            if [ "$(docker inspect --format='{{.State.Health.Status}}' uts-pl-24535556sv24264-db-1 2>/dev/null || true)" = "unhealthy" ]; then
+            DB_CONTAINER=$(docker compose ps -q db)
+            DB_HEALTH=""
+            if [ -n "$DB_CONTAINER" ]; then
+              DB_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$DB_CONTAINER" 2>/dev/null || true)
+            fi
+
+            if [ "$DB_HEALTH" = "unhealthy" ]; then
               echo "MySQL berstatus unhealthy. Mengambil log diagnostik..."
-              docker compose ps -a
               docker compose logs --no-color db || true
+              docker inspect --format='{{json .State.Health}}' "$DB_CONTAINER" || true
+              docker compose logs --no-color backend || true
+              docker compose logs --no-color frontend || true
               exit 1
             fi
 
@@ -119,6 +131,12 @@ jobs:
             echo "Smoke test gagal: endpoint tidak mengembalikan HTTP 401."
             docker compose ps -a
             docker compose logs --no-color db || true
+
+            DB_CONTAINER=$(docker compose ps -aq db)
+            if [ -n "$DB_CONTAINER" ]; then
+              docker inspect --format='{{json .State.Health}}' "$DB_CONTAINER" || true
+            fi
+
             docker compose logs --no-color backend || true
             docker compose logs --no-color frontend || true
             exit 1
