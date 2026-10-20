@@ -75,6 +75,8 @@ jobs:
             echo "ADMIN_PASSWORD=${DB_PASSWORD}"
           } > .env
           docker compose up -d --build
+          docker compose ps -a
+          docker compose logs --no-color db
           for i in $(seq 1 40); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: application/json' http://localhost:8080/api/books || true)
             echo "percobaan $i: HTTP $code"
