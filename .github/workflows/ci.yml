@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-test:
+    name: backend-test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite, sqlite3
+          tools: composer
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan test
+
+  frontend-build:
+    name: frontend-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+# ===== JOB DEPLOY (CD) =====
+  deploy:
+    name: deploy
+    needs: [backend-test, frontend-build]
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Siapkan nama image
+        run: |
+          echo "IMAGE_BASE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Smoke test docker compose
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          {
+            echo "APP_KEY=${APP_KEY}"
+            echo "DB_DATABASE=uts_books"
+            echo "DB_USERNAME=uts_user"
+            echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "DB_ROOT_PASSWORD=${DB_PASSWORD}"
+            echo "ADMIN_EMAIL=admin@example.com"
+            echo "ADMIN_PASSWORD=${DB_PASSWORD}"
+          } > .env
+          docker compose up -d --build
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: application/json' http://localhost:8080/api/books || true)
+            echo "percobaan $i: HTTP $code"
+            [ "$code" = "401" ] && break
+            sleep 3
+          done
+          [ "$code" = "401" ]   # tanpa token harus 401 (frontend -> backend -> database hidup)
+          docker compose logs backend | tail -n 20
+          docker compose down -v
+          rm -f .env
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.IMAGE_BASE }}-backend:${{ github.sha }}
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          build-args: |
+            VITE_API_URL=/api
+          push: true
+          tags: ${{ env.IMAGE_BASE }}-frontend:${{ github.sha }}

@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+!.env.example.*
+.DS_Store
+Thumbs.db
+
+/backend-base/
+/frontend-base/
+
+/backend/vendor/
+/backend/node_modules/
+/backend/public/build/
+/backend/storage/*.key
+
+/frontend/node_modules/
+/frontend/dist/

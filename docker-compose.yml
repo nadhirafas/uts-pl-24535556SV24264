@@ -1,0 +1,52 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?isi DB_ROOT_PASSWORD di .env}
+    volumes:
+      - db_data:/var/lib/mysql          # named volume: data tetap ada setelah `down`
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?isi APP_KEY di .env}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: mysql
+      DB_HOST: db                       # nama service, bukan IP
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?isi ADMIN_PASSWORD di .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:80"                       # untuk uji Postman dari host
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api              # Nginx frontend meneruskan /api ke http://backend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"                       # buka http://localhost:8080
+
+volumes:
+  db_data:
