@@ -1,4 +1,4 @@
-# Book Management
+# Pustaka
 
 Book Management adalah aplikasi web sederhana untuk mengelola data buku. Aplikasi ini menggunakan Laravel sebagai backend, Vue.js sebagai frontend, dan MySQL sebagai database.
 
