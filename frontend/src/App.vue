@@ -1,4 +1,3 @@
-
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import LoginForm from './components/LoginForm.vue'
@@ -8,6 +7,10 @@ const token = ref(localStorage.getItem('token'))
 
 const onExpired = () => {
   token.value = null
+}
+
+const onLogin = () => {
+  token.value = localStorage.getItem('token')
 }
 
 onMounted(() => window.addEventListener('auth-expired', onExpired))
@@ -31,7 +34,7 @@ onUnmounted(() => window.removeEventListener('auth-expired', onExpired))
 
     <LoginForm
       v-else
-      @success="token = localStorage.getItem('token')"
+      @success="onLogin"
     />
   </main>
 </template>
