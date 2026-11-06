@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Book;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class BookController extends Controller
 {
@@ -31,6 +32,13 @@ class BookController extends Controller
     {
         $book = Book::create($request->validate($this->rules()));
 
+        Log::info('book.created', [
+            'user_id' => $request->user()->id,
+            'action' => 'menyimpan buku baru',
+            'book_id' => $book->id,
+            'reason' => 'permintaan POST /api/books dari pengguna terautentikasi',
+        ]);
+
         return response()->json(['data' => $book], 201);
     }
 
@@ -38,12 +46,27 @@ class BookController extends Controller
     {
         $book->update($request->validate($this->rules()));
 
+        Log::info('book.updated', [
+            'user_id' => $request->user()->id,
+            'action' => 'mengubah data buku',
+            'book_id' => $book->id,
+            'changed_fields' => array_keys($book->getChanges()),
+            'reason' => 'permintaan PUT /api/books/{id} dari pengguna terautentikasi',
+        ]);
+
         return response()->json(['data' => $book]);
     }
 
-    public function destroy(Book $book): JsonResponse
+    public function destroy(Request $request, Book $book): JsonResponse
     {
         $book->delete();
+
+        Log::info('book.deleted', [
+            'user_id' => $request->user()->id,
+            'action' => 'menghapus buku',
+            'book_id' => $book->id,
+            'reason' => 'permintaan DELETE /api/books/{id} dari pengguna terautentikasi',
+        ]);
 
         return response()->json(['message' => 'Buku dihapus.']);
     }
