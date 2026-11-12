@@ -1,6 +1,11 @@
 {
 	frankenphp
 	auto_https off
+
+	# Aktifkan metrik per-permintaan (caddy_http_requests_total, caddy_http_request_duration_seconds)
+	servers {
+		metrics
+	}
 }
 
 :80 {
@@ -14,4 +19,10 @@
 	}
 
 	php_server
+}
+
+# Endpoint metrik KHUSUS Prometheus. Port 9180 tidak dipublikasikan ke host
+# (tidak ada di "ports:" compose), hanya terjangkau dari jaringan compose.
+:9180 {
+	metrics /metrics
 }

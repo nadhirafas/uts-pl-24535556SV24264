@@ -1,0 +1,14 @@
+groups:
+  - name: ketersediaan-layanan
+    rules:
+      - alert: LayananMati
+        # up bernilai 0 bila Prometheus gagal mengambil metrik dari target tersebut
+        expr: up == 0
+        # Tahan 1 menit supaya restart singkat / satu scrape gagal tidak membunyikan alarm
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Layanan {{ $labels.job }} mati (target {{ $labels.instance }} tidak bisa di-scrape)"
+          description: "Target {{ $labels.job }} berstatus DOWN selama lebih dari 1 menit. Selama itu fitur yang bergantung padanya tidak bisa dipakai."
+          tindakan_pertama: "Jalankan `docker compose ps` untuk melihat apakah container {{ $labels.job }} berstatus Exited/Restarting, lalu `docker compose logs --tail=50 {{ $labels.job }}` untuk membaca penyebabnya. Jika hanya berhenti, nyalakan lagi dengan `docker compose up -d {{ $labels.job }}`."
